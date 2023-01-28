@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
-import 'package:journalone/data/database.dart';
-import 'package:journalone/util/datetime_util.dart';
+import 'data/database.dart';
+import 'data/providers.dart';
+import 'util/datetime_util.dart';
 
 const databaseName = 'journal_one.db';
-const loading = "Loading...";
-
-// Providers
-final dateProvider = StateProvider((ref) => DateTime.now());
-final textProvider = StateProvider((ref) => loading);
-final editingStateProvider = StateProvider((ref) => false);
 
 late AppDatabase database;
 
@@ -60,6 +56,7 @@ class JournalEntryWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(children: const [
       DatePickerRow(),
+      Expanded(child: JournalEntryText()),
     ]);
   }
 }
@@ -119,6 +116,40 @@ class DatePickerRow extends ConsumerWidget {
   }
 }
 
+class JournalEntryText extends ConsumerWidget {
+  const JournalEntryText({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isEditing = ref.watch(editingStateProvider);
+    final text = ref.watch(textProvider);
+
+    void onTextChanged(String? textNow) {
+      ref.read(stagedTextProvider.notifier).state = textNow ?? '';
+    }
+
+    if (isEditing) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: TextFormField(
+          initialValue: text,
+          onChanged: onTextChanged,
+          maxLines: null,
+          autofocus: true,
+          expands: true,
+          textAlignVertical: TextAlignVertical.top,
+          decoration: const InputDecoration(
+              border: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.teal),
+          )),
+        ),
+      );
+    } else {
+      return Markdown(data: text);
+    }
+  }
+}
+
 class EditSaveFAB extends ConsumerWidget {
   const EditSaveFAB({super.key});
 
@@ -127,6 +158,11 @@ class EditSaveFAB extends ConsumerWidget {
     final isEditing = ref.watch(editingStateProvider);
 
     void onPressed() {
+      if (isEditing) {
+        var stagedText = ref.read(stagedTextProvider);
+        ref.read(textProvider.notifier).state = stagedText;
+        // write staged text to database.
+      }
       ref.read(editingStateProvider.notifier).state = !isEditing;
     }
 
