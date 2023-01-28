@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:journalone/model/database.dart';
+import 'package:journalone/data/database.dart';
 import 'package:journalone/util/datetime_util.dart';
 
 const databaseName = 'journal_one.db';

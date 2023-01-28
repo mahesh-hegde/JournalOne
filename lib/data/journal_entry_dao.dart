@@ -1,5 +1,5 @@
 import 'package:floor/floor.dart';
-import 'package:journalone/model/journal_entry.dart';
+import 'package:journalone/data/journal_entry.dart';
 
 @dao
 abstract class JournalEntryDao {
