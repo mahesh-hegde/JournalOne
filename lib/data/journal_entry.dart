@@ -10,7 +10,7 @@ class JournalEntry {
   String text;
 
   JournalEntry(this.key, this.text);
-  JournalEntry.fromDateAndText({required DateTime date, required String text})
+  JournalEntry.from({required DateTime date, required String text})
       : this(DateTimeUtil.getDaysSinceEpoch(date), text);
   DateTime get dateTime => DateTimeUtil.getDateTime(key);
 }

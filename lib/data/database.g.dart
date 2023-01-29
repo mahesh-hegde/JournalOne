@@ -137,15 +137,15 @@ class _$JournalEntryDao extends JournalEntryDao {
 
   @override
   Future<JournalEntry?> getEntryByDate(int daysSinceEpoch) async {
-    return _queryAdapter.query('SELECT * from journal_entry where date = ?1',
+    return _queryAdapter.query('SELECT * from journal_entry where key = ?1',
         mapper: (Map<String, Object?> row) =>
             JournalEntry(row['key'] as int, row['text'] as String),
         arguments: [daysSinceEpoch]);
   }
 
   @override
-  Future<void> insertEntry(JournalEntry entry) async {
-    await _journalEntryInsertionAdapter.insert(
+  Future<int> insertEntry(JournalEntry entry) {
+    return _journalEntryInsertionAdapter.insertAndReturnId(
         entry, OnConflictStrategy.replace);
   }
 
@@ -158,5 +158,19 @@ class _$JournalEntryDao extends JournalEntryDao {
   @override
   Future<int> deleteEntry(JournalEntry entry) {
     return _journalEntryDeletionAdapter.deleteAndReturnChangedRows(entry);
+  }
+
+  @override
+  Future<void> save(JournalEntry entry) async {
+    if (database is sqflite.Transaction) {
+      await super.save(entry);
+    } else {
+      await (database as sqflite.Database)
+          .transaction<void>((transaction) async {
+        final transactionDatabase = _$AppDatabase(changeListener)
+          ..database = transaction;
+        await transactionDatabase.journalEntryDao.save(entry);
+      });
+    }
   }
 }

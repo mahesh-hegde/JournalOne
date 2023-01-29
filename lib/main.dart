@@ -3,16 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
-import 'data/database.dart';
-import 'data/providers.dart';
+import 'data/repository.dart';
 import 'util/datetime_util.dart';
 
 const databaseName = 'journal_one.db';
 
-late AppDatabase database;
-
 void main() async {
-  database = await $FloorAppDatabase.databaseBuilder(databaseName).build();
   runApp(const ProviderScope(child: JournalOneApp()));
 }
 
@@ -75,13 +71,16 @@ class DatePickerRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final date = ref.watch(dateProvider);
 
-    void previous() {
-      ref.read(dateProvider.notifier).state = date.subtract(oneDay);
+    void setDate(DateTime date) {
+      ref.read(dateProvider.notifier).state = date;
+      repo.getEntryText(date).then((text) {
+        ref.read(textProvider.notifier).state = text;
+      });
     }
 
-    void next() {
-      ref.read(dateProvider.notifier).state = date.add(oneDay);
-    }
+    void previous() => setDate(date.subtract(oneDay));
+
+    void next() => setDate(date.add(oneDay));
 
     void pickDate() async {
       var pickedDate = await showDatePicker(
@@ -91,7 +90,7 @@ class DatePickerRow extends ConsumerWidget {
         lastDate: DateTime.now(),
       );
       if (pickedDate != null) {
-        ref.read(dateProvider.notifier).state = pickedDate;
+        setDate(pickedDate);
       }
     }
 
@@ -128,25 +127,33 @@ class JournalEntryText extends ConsumerWidget {
       ref.read(stagedTextProvider.notifier).state = textNow ?? '';
     }
 
-    if (isEditing) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: TextFormField(
-          initialValue: text,
-          onChanged: onTextChanged,
-          maxLines: null,
-          autofocus: true,
-          expands: true,
-          textAlignVertical: TextAlignVertical.top,
-          decoration: const InputDecoration(
-              border: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.teal),
-          )),
-        ),
-      );
-    } else {
-      return Markdown(data: text);
+    // crude stuff ahead
+    if (text == null) {
+      var date = ref.read(dateProvider);
+      repo
+          .getEntryText(date)
+          .then((text) => ref.read(textProvider.notifier).state = text);
+      return const Center(child: CircularProgressIndicator());
     }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: isEditing
+          ? TextFormField(
+              initialValue: text,
+              onChanged: onTextChanged,
+              maxLines: null,
+              autofocus: true,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              decoration: const InputDecoration(
+                  hintText: "Write your journal here...",
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.teal),
+                  )),
+            )
+          : Markdown(data: text),
+    );
   }
 }
 
@@ -156,12 +163,15 @@ class EditSaveFAB extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isEditing = ref.watch(editingStateProvider);
-
     void onPressed() {
       if (isEditing) {
+        var date = ref.read(dateProvider);
         var stagedText = ref.read(stagedTextProvider);
-        ref.read(textProvider.notifier).state = stagedText;
-        // write staged text to database.
+        if (stagedText != null) {
+          ref.read(textProvider.notifier).state = stagedText;
+          repo.save(date, stagedText);
+          ref.read(stagedTextProvider.notifier).state = null;
+        }
       }
       ref.read(editingStateProvider.notifier).state = !isEditing;
     }
